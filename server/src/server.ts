@@ -46,6 +46,8 @@ import { createPairRouter } from "./oauth/pairRouter.ts";
 import { createOAuthRouter, createOAuthMetadataRouter } from "./oauth/router.ts";
 import { writeApps } from "./cli/configWrite.ts";
 import { serverInfo } from "./meta.ts";
+import { typesafeProvider } from "./navigate/secrets.ts";
+import type { JevProvider } from "./navigate/jev.ts";
 
 export interface AppDeps {
   engine: PreviewEngine;
@@ -65,6 +67,8 @@ export interface AppDeps {
    * stored or queued for approval — see `oauth/pairing.ts`.
    */
   connector?: { store: OAuthStore; pairing: PairingStore; baseUrl: string };
+  /** The `navigate` decider. Absent → the tool reports itself disabled. */
+  jev?: JevProvider;
 }
 
 /** Build the Express app (no listener). Split out so tests can inject deps. */
@@ -116,6 +120,7 @@ export function createApp(deps: AppDeps): express.Application {
       setup: deps.setup?.store,
       oauth: deps.connector?.store,
       baseUrl: deps.connector?.baseUrl,
+      jev: deps.jev,
     }),
   );
   app.use("/s", createShareRouter({ engine: deps.engine, pinGate: deps.pinGate, viewerDist: deps.viewerDist }));
@@ -216,6 +221,7 @@ export function createServer(): DeckhandServer {
     persistApps: writeApps,
     setup: { store: new SetupStore(), patPath: githubPatPath(config) },
     connector: { store: new OAuthStore(), pairing: new PairingStore(), baseUrl: publicBaseUrl(config) },
+    jev: typesafeProvider(),
   });
   const httpServer = createHttpServer(app);
   attachUpgrade(httpServer, engine, pinGate);
